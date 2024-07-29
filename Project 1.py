@@ -1,471 +1,617 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import math
-from scipy.special import i0 
-from scipy.integrate import simps
-from PIL import Image
-
-#import brightness images --> Im sorry if you run this code and it doesnt give you access
-#im not sure how to change that. sorry
-#if code doesnt work just ignore the images and remove them from brightness plot, they arent needed just nice visuals
-img1 = np.asarray(Image.open('c:\\Users\\robbi\\OneDrive\\Pictures\\12_seconds_barium.PNG'))
-img2 = np.asarray(Image.open('c:\\Users\\robbi\\OneDrive\\Pictures\\27_seconds_barium.PNG'))
-img3 = np.asarray(Image.open('c:\\Users\\robbi\\OneDrive\\Pictures\\64_seconds_barium.PNG'))
-
-def Brightness(C,ds):
 
 
-   
-
-    lim = len(C[:][0][0])
-    B = np.zeros((lim,lim))
-    #for now only do positive x and z
-    for n_x in range(lim):
-        for n_z in range(lim):
-            for n_y in range(lim):
-                B[n_x][n_z] += 2*ds*C[n_x][n_y][n_z]
-                
-    # Create a new array that is twice the size of B in each dimension
-    B_full = np.zeros((2*lim, 2*lim))
-
-    # Fill the new array with the values of B in each quadrant
-    B_full[lim:, lim:] = B  # B(x, y)
-    B_full[:lim, lim:] = np.flip(B, axis=0)  # B(-x, y)
-    B_full[lim:, :lim] = np.flip(B, axis=1)  # B(x, -y)
-    B_full[:lim, :lim] = np.flip(B)  # B(-x, -y)
-
-    # Plot the new array
+def rk3(A, bvector, y0, interval, N):
     """
-    plt.imshow(B_full, cmap='PuBu', interpolation='nearest')
-    plt.xlabel('x / length')
-    plt.ylabel('z / length')
-    plt.title('Relative brightness when looking up at sphere at n_t=4')
-    plt.colorbar()
+    Solve the IVP y' = A y + b, y(0) = y0, in the interval,
+    using N steps of RK3.
+
+    Parameters
+    ----------
+    A : matrix
+        Partially defines ODE according to (4)
+    bvector : function name returning vector
+        Completes definition of ODE according to (4)
+    y0 : vector
+        Initial data
+    interval : vector
+        Interval on which solution is required
+    N : int
+        Number of steps
+
+    Returns
+    -------
+    x : array of float
+        Coordinate locations of the approximate solution
+    y : array of float
+        Values of approximate solution at locations x
     """
-    return B_full
-    
-def theoretical_Brightness(d_x,d_t,R,max_dist,n_t):
-    
-    #For some reason numpy wouldn't recognise zeros here so we import it directly
-    from numpy import zeros
 
-    
-    B = zeros((max_dist,max_dist))
 
-    #Define D
+    # Add RK3 algorithm implementation here according to Task 1
 
-    D = d_x**2 / (6*d_t)
+    #define space the function is evaluated over
+    x, dx = np.linspace(interval[0],interval[-1],N+1,retstep=True)
 
-    t = n_t*d_t
+    #Assert basic conditions for inputs
+    assert callable(bvector), "bvector must be a function"
+    assert isinstance(y0, (list,np.ndarray)), "y0 must be a list numpy array"
+    assert isinstance(interval, (list,np.ndarray)), "interval must be a list numpy array"
+    assert isinstance(N, int), "N must be an integer"
+    assert interval[0] < interval[-1], "interval must be increasing"
+    assert A.shape[1] == np.shape(bvector(x[0]))[0], "The number of columns in A must be equal to the number of rows in bvector"
+    assert A.shape[0] == A.shape[1], "A must be a square matrix"
 
-  
-    
 
-    
-
-    
+    #Create+Initialise solution matrix define space func evaluated over
+    y = np.zeros((N+1,len(y0)))
+    y[0,:] = y0
     
     
-    #loop over to find B(x,y) rather than B(rho)
-    #Harder to visualise on 2D grid when only in terms of rho
-    for n_x in range(max_dist):
-        for n_y in range(max_dist):
-            x = n_x * d_x
-            y = n_y * d_x
-            rho = np.sqrt(x**2 + y**2)
-
-            #code below for integration using Simspon's rule
-            def integrand(theta):
-                return np.exp(((-R**2 * (np.sin(theta))**2)/(4*D*t))) *i0(R*rho*np.sin(theta)/(2*D*t))*np.sin(theta)*(np.cos(theta)**2)
+    
+    #Loop procedure over N additional steps
+    for i in range(N):
+        #RK3 algorithm
+            y_1 = y[i,:] + dx*(A@y[i,:] + bvector(x[i]))
+            y_2 = 0.75*y[i,:] + 0.25*y_1 + 0.25*dx*(A@y_1 + bvector(x[i]+dx)) 
+            y[i+1,:] = (1/3)*y[i,:] + (2/3)*y_2 + (2/3)*dx*(A@y_2 + bvector(x[i]+dx))
             
-            range_list = np.linspace(0,np.pi/2,1000)
+    # The first output argument x is the locations x_j at which the solution is evaluated;
+    # this should be a real vector of length N + 1 covering the required interval.
+    # The second output argument y should be the numerical solution approximated at the
+    # locations x_j, which will be an array of size n × (N + 1).
+    return x, y
 
-            y = integrand(range_list)
-    #Calculate the integral
-            B[n_x][n_y] = (R**3/(D*t))*np.exp((-(rho)**2/(4*D*t)))*simps(y,range_list,axis = -1)
+
+def dirk3(A, bvector, y0, interval, N):
+    """
+    Solve the IVP y' = A y + b, y(0) = y0, in the interval,
+    using N steps of DIRK3.
+
+    Parameters
+    ----------
+    A : matrix
+        Partially defines ODE according to (4)
+    bvector : function name returning vector
+        Completes definition of ODE according to (4)
+    y0 : vector
+        Initial data
+    interval : vector
+        Interval on which solution is required
+    N : int
+        Number of steps
+
+    Returns
+    -------
+    x : array of float
+        Coordinate locations of the approximate solution
+    y : array of float
+        Values of approximate solution at locations x
+    """
+
+    # Add DIRK3 algorithm implementation here according to Task 2
+
+    #Create space function evaluated over
+    x, h = np.linspace(interval[0],interval[-1],N+1,retstep=True)
+
+    #Assert basic conditions for inputs
+    assert callable(bvector), "bvector must be a function"
+    assert isinstance(y0, (list,np.ndarray)), "y0 must be a list numpy array"
+    assert isinstance(interval, (list,np.ndarray)), "interval must be a list numpy array"
+    assert isinstance(N, int), "N must be an integer"
+    assert interval[0] < interval[-1], "interval must be increasing"
+    assert A.shape[1] == np.shape(bvector(x[0]))[0], "The number of columns in A must be equal to the number of rows in bvector"
+    assert A.shape[0] == A.shape[1], "A must be a square matrix"
     
-    #Make a full circle
-    B_full = np.zeros((2*max_dist, 2*max_dist))
-    B_full[max_dist:, max_dist:] = B  # B(x, y)
-    B_full[:max_dist, max_dist:] = np.flip(B, axis=0)  # B(-x, y)
-    B_full[max_dist:, :max_dist] = np.flip(B, axis=1)  # B(x, -y)
-    B_full[:max_dist, :max_dist] = np.flip(B)  # B(-x, -y)
-    return B_full
-
-
-
-
-
-   
-
-def new_erfc(x):
-    if x<0:
-        return 2-math.erfc(-x)
-    else :
-        return math.erfc(x)
-
-def theoretical_density(R, max_dist, max_t, dt, dr):
-    #Calculate D using relation
-    D = dr**2 / (6*dt)
-
-    C = np.zeros((max_dist,max_t),dtype = float)
-    for n_t in range(max_t):
-        for n_r in range(max_dist):
-            #define r and t
-            r = (n_r * dr) +10e-30
-            t = (n_t * dt)+10e-30
-            
-            #Define r_plus and r_minus
-            r_plus = (R+r)/(2*np.sqrt(D*t))
-            r_minus = (R-r)/(2*np.sqrt(D*t))
-
-            #Calculate C
-            
-            C[n_r][n_t] = 0.5*(2-new_erfc(r_plus) - new_erfc(r_minus))+((1/r)*np.sqrt(D*t/np.pi))*(np.exp(-(r_plus**2)) - np.exp(-(r_minus**2)))
-           
-    return C
-
-#Define 3D array as set of zeros
-
-#We are measuring 10 minutes of diffusion with 1 second intervals
-time_steps, dt = np.linspace(0,200,200,retstep=True)
-#We are measuring across 300m of space with 1m intervals
-space_steps, ds = np.linspace(0,6000,50,retstep=True)
-max_t = len(time_steps)
-max_dist = len(space_steps)
-
-
-
-
-
-
-
-
-#make a 3D array: cubic spatial
-C = np.zeros((max_dist,max_dist,max_dist),dtype=float)
-
-
-
-
-
-#initial conditions
-# Set radius for initial conditions
-initial_radius = max_dist / 2
-
-
-
-
-#initial number density
-N0 = 3.89e13
-
-# Set initial conditions
-for n_x in range(max_dist):
-    for n_y in range(max_dist):
-        for n_z in range(max_dist):
-            # Check if point is within the initial radius
-            if np.sqrt(n_x**2 + n_y**2 + n_z**2) < initial_radius:
-                # Set initial conditions with Gaussian decay
-                C[n_x][n_y][n_z] = 1
-            elif initial_radius -0.5 <=np.sqrt(n_x**2 + n_y**2 + n_z**2) < initial_radius + 0.5:
-                C[n_x][n_y][n_z] = 0.5
-                
-
-
-
-
-newC = C[:][:][:]
-
-
-#error_without_boundary = [0.041362931081663855, 0.039615176343294284, 0.04181115470594442, 0.049983722129009894, 0.05567421592429207, 0.05946333423543956, 0.0617756170736944, 0.06291914507740265, 0.06324789420195438, 0.06302255328748958, 0.06242755513907333, 0.06159166827324028, 0.06231960725465234, 0.06291559553713662, 0.0632484998894215, 0.0633717444245428, 0.06332695307183994, 0.06314685059813405, 0.06285740119982122, 0.062479384603944754, 0.062029564199310536, 0.061521560323752306, 0.060966509731398694, 0.0603735688660888, 0.060262174000482144, 0.060333917911331025, 0.060337516904713395, 0.06028110549128912, 0.06017181859321692, 0.060015925060654396, 0.05981894193259911, 0.05958573238013634, 0.05932058981339704, 0.05902731024299021, 0.05870925465613394, 0.05836940288963946, 0.058010400248735966, 0.05763459792551809, 0.057244088107456084, 0.05684073452966447, 0.05679074270140694, 0.05672395219937387, 0.05663347820574563, 0.0565212388695564, 0.05638899448560612, 0.0562383615708367, 0.056070825610634326, 0.055887752601360405, 0.055690399504747995, 0.055479923719553695, 0.05525739166617437, 0.05502378657090903, 0.054780015528200124, 0.05452691591153362, 0.0542652611966869, 0.05399576625466479, 0.05371909216591603, 0.053435850602229135, 0.053164439619856174, 0.05308155952570755, 0.05298750186146728, 0.052882918161405876, 0.05276842160879973, 0.052644589495936894, 0.05251196551566914, 0.05237106189614192, 0.052222361389636554, 0.05206631912576985, 0.05190336433862608, 0.051733901976759714, 0.0515583142043924, 0.05137696180154826, 0.051190185470326416, 0.050998307053994496, 0.05080163067510213, 0.050600443798369754, 0.05039501822368006, 0.05018561101411617, 0.04997246536362149, 0.04975581140852364, 0.049577192849266496, 0.04948669392788446, 0.04939052086695796, 0.04928892363734952, 0.049182141246073355, 0.04907040225957199, 0.04895392530023138, 0.04883291951752114, 0.04870758503508421, 0.04857811337503888, 0.04844468786069078, 0.04830748399879917, 0.04816666984247761, 0.04802240633576017, 0.04787484764080517, 0.04772414144866123, 0.04757042927447093, 0.04741384673793812, 0.0472545238298446, 0.047092585165355694, 0.04692815022481603, 0.04676133358269907, 0.04659224512533569, 0.04642099025801566, 0.04624767010201894, 0.04616100482251441, 0.0460724862557824, 0.0459807789330676, 0.045885992985592164, 0.045788234781092604, 0.04568760706232035, 0.04558420908008641, 0.04547813672106911, 0.04536948263059379, 0.04525833633058919, 0.04514478433291709, 0.04502891024825978, 0.04491079489075117, 0.044790516378521966, 0.04466815023032859, 0.04454376945842571, 0.044417444657836355, 0.044289244092168265, 0.04415923377611801, 0.044027477554799785, 0.04389403718002792, 0.04375897238368008, 0.04362234094826023, 0.043484198774774774, 0.043344599948035356, 0.04320359679948965, 0.043086480176903884, 0.043006526114709724, 0.04292452045333968, 0.042840519433510506, 0.04275457773122504, 0.042666748504168975, 0.04257708343666755, 0.04248563278324693, 0.04239244541084495, 0.04229756883971107, 0.042201049283039076, 0.0421029316853697, 0.04200325975980466, 0.04190207602406855, 0.04179942183545372, 0.04169533742468742, 0.04158986192875054, 0.04148303342268726, 0.041374888950431524, 0.04126546455468763, 0.041154795305891584, 0.04104291533028333, 0.040929857837120276, 0.040815655145056445, 0.04070033870771746, 0.04058393913849449, 0.04046648623458296, 0.04034800900029212, 0.04022853566964564, 0.04013627477705772, 0.040061576268343745, 0.03998548016287793, 0.03990801661200985, 0.03982921507646503, 0.039749104343598254, 0.03966771254420516, 0.039585067168900624, 0.039501195084076304, 0.03941612254744702, 0.039329875223196295, 0.039242478196730574, 0.03915395598905416, 0.0390643325707708, 0.03897363137572459, 0.03888187531428858, 0.03878908678630891, 0.038695287693714414, 0.038600499452800384, 0.038504743006194615, 0.03840803883451323, 0.03831040696771645, 0.03821186699616896, 0.038112438081416365, 0.038012138966680924, 0.03791098798708879, 0.03780900307963017, 0.03770620179286495, 0.03760260129637687, 0.03749821838998342, 0.03739306951270936, 0.03729120658668592, 0.037219295376618194, 0.03714635387431986, 0.037072399673146364, 0.03699745004278389, 0.036921521936128486, 0.036844631996013094, 0.036766796561783464, 0.03668803167572548, 0.03660835308935014, 0.03652777626953605, 0.03644631640453381, 0.03636398840983614, 0.036280806933915485, 0.036196786363831966, 0.036111940830715505, 0.03602628421512441, 0.03593983015228282]
-
-
-
-
-
-
-"""
-#time evoluiton
-fig, axs = plt.subplots(2,2)
-axs[0,0].plot(C[:][0][0],ls='-',label='Finite Difference')
-axs[0,0].plot(C_theoretical[:,0],ls='--',label='Theoretical Solution')
-"""
-
-#Plotting the theoretical brightness using crude animation
-fig = plt.figure()
-
-C_theoretical = theoretical_density(initial_radius*ds,max_dist,max_t,dt,ds)
-
+    #defining constants
+    mu = 0.5*(1-1/np.sqrt(3))
+    v = 0.5*(np.sqrt(3)-1)
+    gamma = 3/(2*(3+np.sqrt(3)))
+    lamda = 3*(1+np.sqrt(3))/(2*(3+np.sqrt(3)))  
     
-error_list = []
-arg_list = []
-value_list = []
-
-central_B = [Brightness(C,ds)[50,50]]
-B_error = [Brightness(C,ds)[50,50]-theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,0)[50,50]]
-
-radius_list = [25*ds]
-radius_error = [60]
-
-fig, axs = plt.subplots(2,2)
-
-for n_t in range(1,20): 
-    #qualitative tracker for how long code is running for
-    print(n_t)
-
-    ##newC[max_dist-1][:][:]= 0.5*C[max_dist-2][:][:] 
-    #newC[:][max_dist-1][:]= 0.5*C[:][max_dist-2][:] 
-    #newC[:][:][max_dist-1]= 0.5*C[:][:][max_dist-2]
-    
-
-    for n_x in range(0,max_dist-1):
-        for n_y in range(0,max_dist-1):
-            for n_z in range(0,max_dist-1):
-                if n_x == 0 and n_y>0 and n_z>0:  # Check if the point is on the boundary
-                    # Use different time evolution equation for boundary points
-                    newC[n_x][n_y][n_z] =  (1/6)*(2*C[n_x+1][n_y][n_z] + C[n_x][n_y+1][n_z] + C[n_x][n_y-1][n_z] + C[n_x][n_y][n_z+1] + C[n_x][n_y][n_z-1])
-                elif n_y == 0 and n_x>0 and n_z>0:
-                    newC[n_x][n_y][n_z] =  (1/6)*(C[n_x+1][n_y][n_z] + C[n_x-1][n_y][n_z] + 2*C[n_x][n_y+1][n_z] + C[n_x][n_y][n_z+1] + C[n_x][n_y][n_z-1])
-                elif n_z == 0 and n_x>0 and n_y>0:
-                    newC[n_x][n_y][n_z] =  (1/6)*(C[n_x+1][n_y][n_z] + C[n_x-1][n_y][n_z] + C[n_x][n_y+1][n_z] + C[n_x][n_y-1][n_z] + 2*C[n_x][n_y][n_z+1])
-                elif n_x==0 and n_y == 0 and n_z>0:
-                    newC[n_x][n_y][n_z] =  (1/6)*(2*C[n_x+1][n_y][n_z] + 2*C[n_x][n_y+1][n_z] + C[n_x][n_y][n_z+1] + C[n_x][n_y][n_z-1])
-                elif n_x==0 and n_z == 0 and n_y>0:
-                    newC[n_x][n_y][n_z] =  (1/6)*(2*C[n_x+1][n_y][n_z] + C[n_x][n_y+1][n_z] + C[n_x][n_y-1][n_z] + 2*C[n_x][n_y][n_z+1])
-                elif n_y==0 and n_z == 0 and n_x>0:
-                    newC[n_x][n_y][n_z] =  (1/6)*(C[n_x+1][n_y][n_z] + C[n_x-1][n_y][n_z] + 2*C[n_x][n_y+1][n_z] + 2*C[n_x][n_y][n_z+1])
-                elif n_x==0 and n_y == 0 and n_z == 0:
-                    newC[n_x][n_y][n_z] =  (1/3)*(C[n_x+1][n_y][n_z] + C[n_x][n_y+1][n_z] + C[n_x][n_y][n_z+1])
-                
-     
-                
-                #boundary condition
-               
-                
-                else:
-                    # Use the original time evolution equation for non-boundary points
-                    newC[n_x][n_y][n_z] =  (1/6) * (C[n_x+1][n_y][n_z] + C[n_x-1][n_y][n_z] + C[n_x][n_y+1][n_z] + C[n_x][n_y-1][n_z] + C[n_x][n_y][n_z+1] + C[n_x][n_y][n_z-1])
-                
-                C = newC[:][:][:]
-"""  
-    #Central Brightness and Error
-    if n_t%10 ==0:
-        B = Brightness(C,ds)[50,50]
-        central_B.append(B)
-        theoretical_B = theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50]
-        error = abs((B-theoretical_B))
-        B_error.append(error)
-
-        #Calculating Radius
-        # Calculating Radius
-        radius = None
-        for i in range(max_dist):
-            if np.round(C[i,0,0],2) ==0.0:
-                radius = (i-1)*ds
-                radius_list.append(radius)
-                error = np.max(np.abs(((C[:,0,0]-C_theoretical[:,n_t]))))
-                r_error = radius*error
-                radius_error.append(r_error)
-                break
-   
-    
-fig, ax1 = plt.subplots()
-t = np.linspace(0,max_t-1,int(max_t/10))
-color = 'tab:blue'
-ax1.set_ylim(2000,10000)
-ax1.set_xlabel('Time/s')
-ax1.set_ylabel('Radius/m', color=color)
-ax1.plot(t, radius_list, color=color,ls='--',label='radius')
-ax1.tick_params(axis='y', labelcolor=color)
-ax1.errorbar(t, radius_list, yerr=radius_error, fmt='o',capsize=5, color=color)
-
-
-ax2 = ax1.twinx()  
-color = 'tab:red'
-ax2.set_ylim(0,7000)
-ax2.set_ylabel(r'Brightness /$m^{-2}$', color=color)  
-ax2.plot(t, central_B, color=color,ls='--',label='brightness')
-ax2.tick_params(axis='y', labelcolor=color)
-ax2.errorbar(t, central_B, yerr=B_error, fmt='o',capsize = 5, color=color)
-
-# Adjust the position of the legends
-ax1.legend(loc='upper right', bbox_to_anchor=(1, 0.9), fontsize = 'x-small')
-ax2.legend(loc='upper right', bbox_to_anchor=(1, 1.0), fontsize = 'x-small')
-#plt.title('Central Brightness and Radius Evolution Without Wind')
-plt.show()
-
-   
-
-   
-
-
-
-    
-
-    #Calculating Error
+    #Create identity matrix
+    I = np.zeros_like(A)
+    I = np.identity(A.shape[0])
     
     
+    
+    #Create and initialise solution matrix
+    y = np.zeros((N+1,len(y0)))
+    y[0,:] = y0
+    
 
-    #Radius and Error
-
-
-
-   
-
-plt.clf()
-central_B.append(Brightness(C,ds)[max_dist][max_dist])
-plt.plot(central_B)
-plt.xlabel('Time/s')
-plt.ylabel(r'Brightness $m^{-2}$')
-plt.title('Brightness at the centre of the sphere')
-plt.pause(0.01)
-
-"""
-   
-
-"""
-
-    if n_t == 12:
-        axs[0,0].plot(space_steps,C[:][0][0],label='Finite Difference',color='blue',ls='--')
-        axs[0,0].plot(space_steps,C_theoretical[:,n_t],ls='--',label='Theoretical Solution',color='red')
-        axs[0,0].legend(loc='upper right',fontsize = 'x-small')
-        axs[0,0].set_title(r'$t=12s$')
-        axs[0,0].set_xlabel(r'Distance from Centre / m')
-        axs[0,0].set_ylabel(r'Number Density / $m^{-3}$')
-        error_list.append(np.max(np.abs(((C[:,0,0]-C_theoretical[:,n_t])))))
-        arg = (np.argmax((np.abs(((C[:,0,0]-C_theoretical[:,n_t]))))))
-        arg_list.append(arg)
-        value_list.append(C[arg,0,0])
-
-    elif n_t==27:
-        axs[0,1].plot(space_steps,C[:][0][0],label='Finite Difference',color='blue',ls='--')
-        axs[0,1].plot(space_steps,C_theoretical[:,n_t],ls='--',label='Theoretical Solution',color='red')
-        axs[0,1].legend(loc='upper right',fontsize = 'x-small')
-        axs[0,1].set_title(r'$t=27s$')
-        axs[0,1].set_xlabel(r'Distance from Centre / m')
-        axs[0,1].set_ylabel(r'Number Density / $m^{-3}$')
+    
+    #Loop procedure over N additional steps
+    for i in range(N):
+        y_1 = np.linalg.inv((I-h*mu*A))@(y[i,:]+ h*mu*bvector(x[i]+h*mu))
         
-        error_list.append(np.max(np.abs(((C[:,0,0]-C_theoretical[:,n_t])))))
-        arg = (np.argmax((np.abs(((C[:,0,0]-C_theoretical[:,n_t]))))))
-        arg_list.append(arg)
-        value_list.append(C[arg,0,0])
+        y_2 = np.linalg.inv((I-h*mu*A))@(y_1 + h*v*(A@y_1+bvector(x[i]+h*mu))+h*mu*bvector(x[i]+h*v+2*h*mu))
+        
+        y[i+1,:] = ((1-lamda)*y[i,:])+(lamda*y_2)+h*gamma*((A@y_2)+bvector(x[i]+(h*v)+(2*h*mu)))
+    
+        
+        
+        
+    
+    
+    
 
-       
-    elif n_t == 64:
-        axs[1,0].plot(space_steps,C[:][0][0],label='Finite Difference',color='blue',ls='--')
-        axs[1,0].plot(space_steps,C_theoretical[:,n_t],ls='--',label='Theoretical Solution',color='red')
-        axs[1,0].legend(loc='upper right',fontsize = 'x-small')
-        axs[1,0].set_title(r'$t=64s$')
-        axs[1,0].set_xlabel(r'Distance from Centre / m')
-        axs[1,0].set_ylabel(r'Number Density / $m^{-3}$')
-        error_list.append(np.max(np.abs(((C[:,0,0]-C_theoretical[:,n_t])))))
-        arg = (np.argmax((np.abs(((C[:,0,0]-C_theoretical[:,n_t]))))))
-        arg_list.append(arg)
-        value_list.append(C[arg,0,0])
 
-       
-    elif n_t == 200:
-        axs[1,1].plot(space_steps,C[:][0][0],label='Finite Difference',color='blue',ls='--')
-        axs[1,1].plot(space_steps,C_theoretical[:,n_t],ls = '--',label='Theoretical Solution',color='red')
-        axs[1,1].legend(loc = 'upper right',fontsize = 'x-small')
-        axs[1,1].set_title(r'$t=200s$')
-        axs[1,1].set_xlabel(r'Distance from Centre / m')
-        axs[1,1].set_ylabel(r'Number Density / $m^{-3}$')
-        error_list.append(np.max(np.abs(((C[:,0,0]-C_theoretical[:,n_t])))))
-        arg = (np.argmax((np.abs(((C[:,0,0]-C_theoretical[:,n_t]))))))
-        value_list.append(C[arg,0,0])
-        arg_list.append(arg)
+    # The first output argument x is the locations x_j at which the solution is evaluated;
+    # this should be a real vector of length N + 1 covering the required interval.
+    # The second output argument y should be the numerical solution approximated at the
+    # locations x_j, which will be an array of size n × (N + 1).
+    return x, y
+
+
+
+def bvector_system_1(x):
+    """
+    b vector definition in Task 3.
+
+    Parameters
+    ----------
+    x : float
+        Coordinate
+
+    Returns
+    -------
+    b : array of float
+        Just zeros in this case
+    """
+    #Assert basic conditions for inputs
+    assert isinstance(x, (float,np.ndarray)), "x must be a float or numpy array"
+    # Define vector b according to equation (5)
+    b=np.zeros(2)
+
+    # Return vector b
+    return b
+
+
+def bvector_system_2(x):
+    """
+    b vector definition in Task 4.
+
+    Parameters
+    ----------
+    x : float
+        Coordinate
+
+    Returns
+    -------
+    b : array of float
+        b as given by equation (13)
+    """
+    #Assert basic conditions for inputs
+    assert isinstance(x, (float,np.ndarray)), "x must be a float or numpy array"
+    # Define vector b according to equation (13)
+    b1 = np.cos(10*x)-10*np.sin(10*x)
+    b2 = 199*np.cos(10*x)-10*np.sin(10*x)
+    b3 = 208*np.cos(10*x)+10000*np.sin(10*x)
+    b = np.array([b1,b2,b3])
+
+    # Return vector b
+    return b
+
+
+
+###Q1
+"""Question 1 already completed as function for RK3 defined"""
+
+###Q2
+'''Question 2 already completed as function for DIRK3  defined'''
+
+###Q3
+
+#Define values a1 and a2 for matrix A
+a1 = 1000
+a2 = 1
+A = np.array([[-a1,0],[a1,-a2]])
+
+#Define initial conditions
+y0 = np.array([1,0])
+
+#Define exact solution for y
+def y_exact(x):
+    """Computes the exact solution of the system of ODEs in Task 3.
+        Parameters
+        ----------
+        x : float
+            Coordinate
+        Returns
+        -------
+        y_exact : array of float
+            Exact solution of the system of ODEs in Task 3"""
+    #Assert basic conditions for inputs
+    assert isinstance(x, (np.ndarray)), "x must be a float or numpy array"
+
+    #Define exact solution for y
+    y_exact_comp_1 = np.exp(-a1*x)
+    y_exact_comp_2 = (a1/(a1-a2))*(np.exp(-a2*x)-np.exp(-a1*x))
+    y_exact = np.array([y_exact_comp_1,y_exact_comp_2])
+    return y_exact
+
+#Define function for norm error
+def norm_error(y_true,y_approx,h,N):
+    """Computes the norm error of the system of ODEs in Task 3.
+        Parameters
+        ----------
+        y_true : array of float
+            Exact solution of the system of ODEs 
+        y_approx : array of float
+            Approximate solution of the system of ODEs 
+        h : float
+            Step size
+        N : int
+            Number of steps
+        Returns
+        -------
+        error : float
+            Norm error of the system of ODEs"""
+    
+    #Assert basic conditions for inputs
+    assert isinstance(y_true, (list,np.ndarray)), "y_true must be a list or numpy array"
+    assert isinstance(y_approx, (list,np.ndarray)), "y_approx must be a list or numpy array"
+    assert isinstance(h, float), "h must be a float"
+    assert isinstance(N, int), "N must be an integer"
+    assert np.shape(y_true.T)==np.shape(y_approx), "y_true and y_approx must be the same shape"
+    
+    summation_list = []
+    for n in range(1,N+1):
+        mod=np.abs((y_true[-1][n]-y_approx[n][-1])/y_true[-1][n])
+        summation_list.append(mod)
+    summation = np.sum(summation_list)
+    error = h*summation
+    return error
+
+
+
+
+#define interval for solution to be evaluated over
+interval = np.array([0,0.1])
+
+#Create empty list for solution matrices and intervals rk3 & dirk3
+x_space_rk3 = []
+x_space_dirk3 = []
+
+rk3_sol_matrices = []
+dirk3_sol_matrices=[]
+
+
+h_list = []
+error_list_rk3 = []
+error_list_dirk3 = []
+
+#Loop over k values
+#Exclude k=1 as too few steps to give reasonable error
+for k in range(2,11):
+    
+    #Solution matrices 
+    xrk3, rk3_sol_matrix = rk3(A,bvector_system_1,y0,interval,40*k)
+    xdirk3, dirk3_sol_matrix = dirk3(A,bvector_system_1,y0,interval,40*k)
+    yexact = y_exact(xrk3)
+    
+    #Append N value for later plotting
+    
+    #Calculate h and append to list
+    h = (interval[1] - interval[0]) / (40*k)
+    h_list.append(h)
+    
+    #Calculate error and append to list
+    error_rk3 = norm_error(yexact, rk3_sol_matrix, h, 40*k)
+    error_list_rk3.append(error_rk3)
+
+    error_dirk3 = norm_error(yexact, dirk3_sol_matrix, h, 40*k)
+    error_list_dirk3.append(error_dirk3)
+
+    
+    #Append to list to access later
+    x_space_rk3.append(xrk3)
+    x_space_dirk3.append(xdirk3)
+    
+    rk3_sol_matrices.append(rk3_sol_matrix)
+    dirk3_sol_matrices.append(dirk3_sol_matrix)
+    
+   
+    
+
+
+def Q3_plots_1_and_2():
+    """Plots the error against h for RK3 and DIRK3
+        Parameters
+        ----------
+        None
+        Returns
+        -------
+        None"""
+    #Fit a polynomial of degree 3 to the error
+    coefficients_rk3 = np.polyfit((h_list), error_list_rk3, 3)
+    coefficients_dirk3 = np.polyfit((h_list), error_list_dirk3, 3)
+
+
+    
+    # Create a polynomial function from the coefficients
+    polynomial_rk3 = np.poly1d(coefficients_rk3)
+    polynomial_dirk3 = np.poly1d(coefficients_dirk3)
+    
+    # Plot the polynomial function
+    fitted_error_rk3 = polynomial_rk3(h_list)
+    fitted_error_dirk3 = polynomial_dirk3(h_list)
+
+    #Calculate gradient for rk3
+    m=(((np.log(error_list_rk3[0])-np.log(error_list_rk3[-1]))/(np.log(h_list[0])-np.log(h_list[-1]))))
+
+    #Plot the fitted polynomial against the error
+    fig1, axs1 = plt.subplots()
+    #Logarithmic to show 3rd order convergence of RK3 through gradient
+    axs1.loglog(h_list, error_list_rk3, 'o', label='RK3')
+    axs1.loglog(h_list, fitted_error_rk3, label=f'Fitted RK3 with m={np.round(m,2)}')
+    axs1.set_title('Logarithmic RK3 with 3rd order fitted polynomial (Q3)')
+    axs1.set_xlabel('log(h)')
+    axs1.set_ylabel('log(Error)')
+    axs1.legend()
+
+    #Calculate m for dirk3
+    m=(((np.log(error_list_dirk3[0])-np.log(error_list_dirk3[-1]))/(np.log(h_list[0])-np.log(h_list[-1]))))
+
+    fig1, axs1 = plt.subplots()
+    axs1.loglog(h_list, error_list_dirk3, 'o', label='DIRK3')
+    axs1.loglog(h_list, fitted_error_dirk3, label=f'Fitted DIRK3 with m={np.round(m,2)}')
+    axs1.set_title('Lograthmic DIRK3 with 3rd order fitted polynomial (Q3)')
+    axs1.set_xlabel('log(h)')
+    axs1.set_ylabel('log(Error)')
+    axs1.legend()
+    
     plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
     plt.show()
-"""
 
+def Q3_plots_3():
+    """Plots the solutions for N=400 for RK3
+        Parameters
+        ----------
+        None
+        Returns
+        -------
+        None"""
+    #Plot the solutions for N=400 for RK3
+    fig2, axs2 = plt.subplots(1,2)
+    #Use semilog to show fast drop off of y1
+    axs2[0].semilogy(x_space_rk3[-1], rk3_sol_matrices[-1][:,0], label='Approximate solution')
+    axs2[0].semilogy(x_space_rk3[-1], yexact[0],color='orange',ls='--', label='Exact solution')
+    axs2[0].set_title('RK3 solution of y1 for N=400')
+    axs2[0].set_xlabel('x')
+    axs2[0].set_ylabel('log(y1)')
+    axs2[0].legend()
 
+    axs2[1].plot(x_space_rk3[-1], rk3_sol_matrices[-1][:,1], label='Approximate solution')
+    axs2[1].plot(x_space_rk3[-1], yexact[1],ls='--',color='orange', label='Exact solution')
+    axs2[1].set_title('RK3 solution of y2 for N=400 (Q3)')
+    axs2[1].set_xlabel('x')
+    axs2[1].set_ylabel('y2')
+    axs2[1].legend()
 
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
+    plt.suptitle('RK3 solution of y1 and y2 for N=400 (Q3)')
+    plt.show()
 
-#plotting the brightness
-    if n_t ==12:
-        img=axs[0,0].imshow(Brightness(C,ds))        
-        axs[0,0].set_title(r'$t=12s$')
-        axs[0,0].set_xticklabels((-6,0,6))
-        axs[0,0].invert_yaxis()  # This line is added to flip the y-axis
-        axs[0,0].set_yticklabels((-6,0,6))
-        axs[0,0].set_xlabel('X/km')
-        axs[0,0].set_ylabel('Y/km')
-        colorbar = fig.colorbar(img, ax=axs[0,0])
-        
-
-        axs[2,0].plot(space_steps,(Brightness(C,ds)[50,50:]-theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50:])/(theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50]),ls='--',label='Finite Difference',color='blue')
-        axs[1,0].plot(space_steps,theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50:],ls='--',label='Theoretical Solution',color='red')
-        axs[1,0].plot(space_steps,Brightness(C,ds)[50,50:],ls='--',label='Finite Difference',color='blue')
+def Q3_plots_4():
+    """Plots the solutions for N=400 for DIRK3
+        Parameters
+        ----------
+        None
+        Returns
+        -------
+        None"""
     
-        axs[1,0].legend(loc='upper right',fontsize = 'xx-small')
-        axs[1,0].set_xlabel(r'Distance from Centre / m')
-        axs[1,0].set_ylabel(r'Brightness $m^{-2}$')
-        
-        axs[2,0].set_xlabel(r'Distance from Centre / m')
-        axs[2,0].set_ylabel(r'Relative Error')
-        
+    #Plot the solutions for N=400 for DIRK3
+    fig3, axs3 = plt.subplots(1,2)
+    #Use semilog to show fast drop off of y1
+    axs3[0].semilogy(x_space_dirk3[-1], dirk3_sol_matrices[-1][:,0], label='Approximate solution')
+    axs3[0].semilogy(x_space_dirk3[-1], yexact[0],color='orange',ls='--', label='Exact solution')
+    axs3[0].set_title('DIRK3 solution of y1 for N=400 (Q3)')
+    axs3[0].set_xlabel('x')
+    axs3[0].set_ylabel('log(y1)')
+    axs3[0].legend()
 
-    elif n_t ==27:
-        axs[0,1].imshow(Brightness(C,ds))
-        colorbar = fig.colorbar(axs[0,1].imshow(Brightness(C,ds)))
-        axs[0,1].set_title(r'$t=27s$')
-        axs[0,1].set_xticklabels((-6,0,6))
-        axs[0,1].invert_yaxis()  # This line is added to flip the y-axis
-        axs[0,1].set_yticklabels((-6,0,6))
-    
+    axs3[1].plot(x_space_dirk3[-1], dirk3_sol_matrices[-1][:,1], label='Approximate solution')
+    axs3[1].plot(x_space_dirk3[-1], yexact[1],ls='--',color='orange', label='Exact solution')
+    axs3[1].set_title('DIRK3 solution of y2 for N=400')
+    axs3[1].set_xlabel('x')
+    axs3[1].set_ylabel('y2')
+    axs3[1].legend()
 
-    
-        axs[2,1].plot(space_steps,(Brightness(C,ds)[50,50:]-theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50:])/theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50],ls='--',label='Finite Difference',color='blue')
-        axs[1,1].plot(space_steps,theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50:],ls='--',label='Theoretical Solution',color='red')
-        axs[1,1].plot(space_steps,Brightness(C,ds)[50,50:],ls='--',label='Finite Difference',color='blue')
-        
-        axs[1,1].legend(loc='upper right',fontsize = 'xx-small')
-        
-        axs[1,1].set_xlabel(r'Distance from Centre / m')
-    
-        axs[2,1].set_xlabel(r'Distance from Centre / m')
-            
-
-
-        elif n_t == 64:
-            axs[0,2].imshow(Brightness(C,ds))
-            colorbar = fig.colorbar(axs[0,2].imshow(Brightness(C,ds)))
-            axs[0,2].set_title(r'$t=64s$')
-            axs[2,2].plot(space_steps,(Brightness(C,ds)[50,50:]-theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50:])/theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50],ls='--',label='Finite Difference',color='blue')
-            axs[1,2].plot(space_steps,theoretical_Brightness(ds,dt,initial_radius*ds,max_dist,n_t)[50,50:],ls='--',label='Theoretical Solution',color='red')
-            axs[1,2].plot(space_steps,Brightness(C,ds)[50,50:],ls='--',label='Finite Difference',color='blue')
-            axs[0,2].set_xticklabels((-6,0,6))
-            axs[0,2].invert_yaxis()  # This line is added to flip the y-axis
-            axs[0,2].set_yticklabels((-6,0,6))
-            
-            axs[1,2].legend(loc='upper right',fontsize = 'xx-small')
-            axs[1,2].set_xlabel(r'Distance from Centre / m')
-        
-            axs[2,2].set_xlabel(r'Distance from Centre / m')
-
-            
-        #elif n_t == 200:
-            #axs[2,0].imshow(img3)
-            #axs[2,1].imshow(Brightness(C,ds))
-            #axs[2,2].imshow(theoretical_Brightness(ds,dt,initial_radius,max_dist,n_t))
-    #plt.subplots_adjust(wspace=0.5,hspace=0.5)
-   # plt.show()
-    
-    
-
-
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
+    plt.suptitle('DIRK3 solution of y1 and y2 for N=400 (Q3)')
+    plt.show()
 
 
     
-    #plot density distribution
+
+    
+###Q4
+
+#Define initial values 
+y_initial_Q4 = np.array([0,1,0])
+
+#Define matrix A
+A_Q4 = np.array([[-1,0,0],[-99,-100,0],[-10098,9900,-10000]])
+
+#Create function for exact solution
+def y_exact_Q4(x):
+    """Computes the exact solution of the system of ODEs in Task 4.
+        Parameters
+        ----------
+        x : float
+            Coordinate
+        Returns
+        -------
+        y_exact : array of float
+            Exact solution of the system of ODEs in Task 4"""
+    #Assert basic conditions for inputs
+    assert isinstance(x, (np.ndarray)), "x must be a float or numpy array"
+    y_exact_comp_1 = np.cos(10*x)-np.exp(-x)
+    y_exact_comp_2 = np.cos(10*x)+np.exp(-x)-np.exp(-100*x)
+    y_exact_comp_3 = np.sin(10*x)+2*np.exp(-x)-np.exp(-100*x)-np.exp(-10000*x)
+    y_exact = np.array([y_exact_comp_1,y_exact_comp_2,y_exact_comp_3])
+    return y_exact
+
+#interval for solution to be evaluated over
+interval = np.array([0,1])
+#Create empty list for solution matrices and intervals rk3 & dirk3
+x_space_rk3_Q4 = []
+x_space_dirk3_Q4 = []
+
+rk3_sol_matrices_Q4 = []
+dirk3_sol_matrices_Q4=[]
+
+#Define empty lists for h and error
+h_list_Q4 = []
+error_list_dirk3_Q4 = []
+
+#Loop over k values
+#Exclude k=4 as too few steps to give reasonable error
+for k in range(5,17):
+
+    #Use RK3 and DIRK3 algorithms for Q4
+    xrk3_Q4, rk3_sol_matrix_Q4 = rk3(A_Q4,bvector_system_2,y_initial_Q4,interval,200*k)
+    xdirk3_Q4, dirk3_sol_matrix_Q4 = dirk3(A_Q4,bvector_system_2,y_initial_Q4,interval,200*k)
+
+    #Append to list to access later
+    x_space_rk3_Q4.append(xrk3_Q4)
+    x_space_dirk3_Q4.append(xdirk3_Q4)
+
+    rk3_sol_matrices_Q4.append(rk3_sol_matrix_Q4)
+    dirk3_sol_matrices_Q4.append(dirk3_sol_matrix_Q4)
+    
+    #Calculate exact solution based on x values
+    yexact_Q4 = y_exact_Q4(xdirk3_Q4)
+
+    #Calculate h and append to list
+    h_Q4 = (interval[1] - interval[0]) / (200*k)
+    h_list_Q4.append(h_Q4)
+
+    #Calculate error and append to list
+    error_dirk3_Q4 = norm_error(yexact_Q4, dirk3_sol_matrix_Q4, h_Q4, 200*k)
+    error_list_dirk3_Q4.append(error_dirk3_Q4)
+print("The statements printed above state that the RK3 algorithm has failed to converge to the exact solution for N=3200. This is because the algorithm is unstable and the solution is diverging.")
+
+def Q4_plots_5():
+    """Plots the error against h for RK3 and DIRK3
+        Parameters
+        ----------
+        None
+        Returns
+        -------
+        None"""
+    #Plot the error against h for DIRK3
+    #Logarithmic to show 3rd order convergence of RK3 through gradient
+    plt.loglog(h_list_Q4, error_list_dirk3_Q4, 'o', label='DIRK3')
+    plt.xlabel('log(h)')
+    plt.ylabel('log(Error)')
+
+    #Fit a polynomial of degree 1 to the error
+    coefficents = np.polyfit(np.log(h_list_Q4), np.log(error_list_dirk3_Q4), 1)
+    polynomial = np.poly1d(coefficents)
+    fitted_error = np.exp(polynomial(np.log(h_list_Q4)))
+    plt.loglog(h_list_Q4, fitted_error, ls='--', color='orange', label=f'Fitted DIRK3 with m={np.round(coefficents[0],2)}')
+    plt.legend()
+    
+    plt.title('DIRK3 error for Q4')
+    plt.show()
+
+def Q4_plots_6():
+    """Plots the solutions for N=3200 for RK3 and DIRK3
+        Parameters
+        ----------
+        None
+        Returns
+        -------
+        None"""
+    #Plot all components of y for DIRK3
+    fig, axs = plt.subplots(3,1)
+    #y1
+    axs[0].plot(x_space_dirk3_Q4[-1], dirk3_sol_matrices_Q4[-1][:,0], label='Approximate solution')
+    axs[0].plot(x_space_dirk3_Q4[-1], yexact_Q4[0],ls='--',color='orange', label='Exact solution')
+    axs[0].set_title('DIRK3 solution of y1')
+    axs[0].set_xlabel('x')
+    axs[0].set_ylabel('y1')
+    axs[0].legend(loc='upper right',fontsize='small')
+    #y2
+    axs[1].plot(x_space_dirk3_Q4[-1], dirk3_sol_matrices_Q4[-1][:,1], label='Approximate solution')
+    axs[1].plot(x_space_dirk3_Q4[-1], yexact_Q4[1],ls='--',color='orange', label='Exact solution')
+    axs[1].set_title('DIRK3 solution of y2')
+    axs[1].set_xlabel('x')
+    axs[1].set_ylabel('y2')
+    axs[1].legend(loc='upper right',fontsize='small')
+    #y3
+    axs[2].plot(x_space_dirk3_Q4[-1], dirk3_sol_matrices_Q4[-1][:,2], label='Approximate solution')
+    axs[2].plot(x_space_dirk3_Q4[-1], yexact_Q4[2],ls='--',color='orange', label='Exact solution')
+    axs[2].set_title('DIRK3 solution of y3')
+    axs[2].set_xlabel('x')
+    axs[2].set_ylabel('y3')
+    axs[2].legend(loc='upper right',fontsize='small')
     
 
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
+    plt.suptitle('DIRK3 solution of y1, y2 and y3 for N=3200 (Q4)')
+    plt.show()
+
+def Q4_plots_7():
+    """Plots the solutions for N=3200 for RK3 and DIRK3
+        Parameters
+        ----------
+        None
+        Returns
+        -------
+        None"""
+    #Plot all components of Y for RK3
+   
+    #y1
+    fig, axs = plt.subplots(3,1)
+    axs[0].plot(x_space_rk3_Q4[-1], rk3_sol_matrices_Q4[-1][:,0], label='Approximate solution')
+    axs[0].plot(x_space_rk3_Q4[-1], yexact_Q4[0],ls='--',color='orange', label='Exact solution')
+    axs[0].set_title('RK3 solution of y1')
+    axs[0].set_xlabel('x')
+    axs[0].set_ylabel('y1')
+    axs[0].legend(loc='upper right',fontsize='small')
+
+    #y2
+    axs[1].plot(x_space_rk3_Q4[-1], rk3_sol_matrices_Q4[-1][:,1], label='Approximate solution')
+    axs[1].plot(x_space_rk3_Q4[-1], yexact_Q4[1],ls='--',color='orange', label='Exact solution')
+    axs[1].set_title('RK3 solution of y2')
+    axs[1].set_xlabel('x')
+    axs[1].set_ylabel('y2')
+    axs[1].legend(loc='upper right',fontsize='small')
+
+    #y3
+    axs[2].plot(x_space_rk3_Q4[-1], rk3_sol_matrices_Q4[-1][:,2], label='Approximate solution')
+    axs[2].plot(x_space_rk3_Q4[-1], yexact_Q4[2],ls='--',color='orange', label='Exact solution')
+    axs[2].set_title('RK3 solution of y3')
+    axs[2].set_xlabel('x')
+    axs[2].set_ylabel('y3')
+    axs[2].legend(loc='upper right',fontsize='small')
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
+    plt.suptitle('RK3 solution of y1, y2 and y3 for N=3200 (Q4)')
+    plt.show()   
 
 
+    
 
-        
-        
-#plot brightness
+    
+#Run functions- comment out to run specific functions
+Q3_plots_1_and_2()
+Q3_plots_3()
+Q3_plots_4()
+Q4_plots_5()
+Q4_plots_6()
+Q4_plots_7()
 
 
 
