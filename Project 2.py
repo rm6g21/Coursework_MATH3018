@@ -1,9 +1,11 @@
-#Define the ODEs
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import scipy.integrate
 import scipy.optimize
+
+#hair angles and force magnitudes
 theta_0_list = np.linspace(0,np.pi,20)
 f_g = 0.1
 f_x = 0
